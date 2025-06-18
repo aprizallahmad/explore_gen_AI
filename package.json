@@ -1,0 +1,28 @@
+{
+  "name": "explore_gen_ai",
+  "version": "1.0.0",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aprizallahmad/explore_gen_AI.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/aprizallahmad/explore_gen_AI/issues"
+  },
+  "homepage": "https://github.com/aprizallahmad/explore_gen_AI#readme",
+  "description": "",
+  "dependencies": {
+    "@google/genai": "^1.5.1",
+    "@google/generative-ai": "^0.24.1",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "multer": "^2.0.1"
+  }
+}
