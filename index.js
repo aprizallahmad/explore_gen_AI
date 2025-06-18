@@ -11,7 +11,7 @@ app.use(express.json());
 
 // Inisialisasi GoogleGenerativeAI dengan API key
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const modelType = "models/gemini-2.5-flash"; // Sesuaikan dengan model yang Anda inginkan
+const modelType = "models/gemini-1.5-flash"; // Sesuaikan dengan model yang Anda inginkan
 
 // Dapatkan instance model generatif
 const model = genAI.getGenerativeModel({
