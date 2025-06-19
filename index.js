@@ -4,18 +4,31 @@ import multer from "multer";
 import fs, { read } from "fs";
 import path from "path";
 import { GoogleGenerativeAI } from "@google/generative-ai"; // <-- Ini yang benar
+import cors from "cors"
+import { dataKajian, dataKegiatan, dataPesantren } from "./datalokal.js";
 
 dotenv.config();
 const app = express();
+app.use(cors());
 app.use(express.json());
+app.use(express.static('public'))
 
 // Inisialisasi GoogleGenerativeAI dengan API key
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const modelType = "models/gemini-1.5-flash"; // Sesuaikan dengan model yang Anda inginkan
+const systemPrompt = `Anda adalah asisten virtual untuk ${dataPesantren.nama}. 
+        Tugas Anda adalah menjawab pertanyaan pengunjung dengan ramah, sopan, dan informatif dalam Bahasa Indonesia. 
+        Selalu kaitkan jawaban Anda dengan konteks pesantren ini. 
+        Data Pesantren: ${JSON.stringify(dataPesantren)}, 
+        Kajian: ${JSON.stringify(dataKajian)}, 
+        Kegiatan: ${JSON.stringify(dataKegiatan)}. 
+        Jika pengguna mengunggah gambar atau file , analisis gambar atau file tersebut. 
+        Untuk semua permintaan lainnya, jawablah secara normal.`;
 
 // Dapatkan instance model generatif
 const model = genAI.getGenerativeModel({
   model: modelType,
+  systemInstruction: systemPrompt
 });
 
 const upload = multer({ dest: "uploads/" }); // Masih diperlukan untuk generate-from-image
@@ -23,7 +36,10 @@ const upload = multer({ dest: "uploads/" }); // Masih diperlukan untuk generate-
 const PORT = 3000;
 
 function generatePart(req) {
+  console.log("generatePart filePath : ", req.file);
+
   const filePath = req.file.path;
+
   const dataBuffer = fs.readFileSync(filePath);
   const base64EncodedData = dataBuffer.toString("base64");
   const mimeType = req.file.mimetype;
@@ -36,13 +52,17 @@ function generatePart(req) {
   };
 }
 
+
 app.post("/generate-text", async (req, res) => {
+  
+
   const { prompt } = req.body;
+  console.log("Hit generate-text:", prompt);
   try {
     const result = await model.generateContent(prompt);
     const response = await result.response;
     const generatedText = response.text();
-    res.json({ output: generatedText });
+    res.json({ type: "text", text: generatedText, sender: "bot"  });
   } catch (error) {
     console.error("Error generating text:", error);
     res.status(500).json({ error: error.message });
@@ -52,10 +72,12 @@ app.post("/generate-text", async (req, res) => {
 app.post("/generate-from-image", upload.single("image"), async (req, res) => {
   const prompt = req.body.prompt || "Describe the image";
   const imagePart = generatePart(req);
+  console.log("Hit generate-from-image:", prompt);
+  console.log("imagePart: ", imagePart);
   try {
     const result = await model.generateContent([prompt, imagePart]);
     const response = await result.response;
-    res.json({ output: response.text() });
+    res.json({ type: "image", text: response.text(), sender: "bot" });
   } catch (error) {
     res.status(500).json({ error: error.message });
   } finally {
@@ -72,7 +94,7 @@ app.post(
     try {
       const result = await model.generateContent([prompt, documentPart]);
       const response = await result.response;
-      res.json({ output: response.text() });
+      res.json({ type: "document", text: response.text(), sender: "bot" });
     } catch (error) {
       res.status(500).json({ error: error.message });
     } finally {
@@ -84,10 +106,11 @@ app.post(
 app.post("/generate-from-audio", upload.single("audio"), async (req, res) => {
   const prompt = req.body.prompt || `Transcribe or analyze the following audio`;
   const audioPart = generatePart(req);
+  console.log("Hit generate-from-audio:", prompt);
   try {
     const result = await model.generateContent([prompt, audioPart]);
     const response = await result.response;
-    res.json({ output: response.text() });
+    res.json({ type: "text", text: response.text(), sender: "bot" });
   } catch (error) {
     res.status(500).json({ error: error.message });
   } finally {
