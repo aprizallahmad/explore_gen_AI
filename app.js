@@ -1,11 +1,14 @@
 import express from "express";
 import dotenv from "dotenv";
 import multer from "multer";
-import fs, { read } from "fs";
-import path from "path";
+import * as fs from "fs";
+import * as path from "path";
 import { GoogleGenerativeAI } from "@google/generative-ai"; // <-- Ini yang benar
 import cors from "cors"
 import { dataKajian, dataKegiatan, dataPesantren } from "./datalokal.js";
+import { fileURLToPath } from 'url'; // >>>>> Perubahan: Untuk __dirname dan __filename di ES Modules
+const __filename = fileURLToPath(import.meta.url); // <<< Ini sudah ada
+const __dirname = path.dirname(__filename); // <<< Ini sudah ada
 
 dotenv.config();
 const app = express();
@@ -22,12 +25,14 @@ const systemPrompt = `Anda adalah asisten virtual untuk ${dataPesantren.nama}.
         Data Pesantren: ${JSON.stringify(dataPesantren)}, 
         Kajian: ${JSON.stringify(dataKajian)}, 
         Kegiatan: ${JSON.stringify(dataKegiatan)}. 
-        Jika pengguna mengunggah gambar atau file , analisis gambar atau file tersebut. 
-        Untuk semua permintaan lainnya, jawablah secara normal.
-        Jika Dia ingin ngobrol, ajaklah dia ngobrol dengan santai.
-        Jika promptnya mengandung kata "admin", beritahu bahwa itu hanya untuk admin dan tanya apakah anda seorang admin.
-        Jika promptnya mengandung kata "khodimul markaz" maka dia adalah admin, dan sapa dia dengan sopan, 
-        Jika promptnya mengandung kata "tes" maka dia adalah admin khodimul markaz, dan sapa dia dengan sopan`;
+        Jika promptnya mengandung kata "admin", maka dia adalah admin khodimul markaz, dan sapa dia dengan sopan, 
+        ingat, anda harus menjawab sesuai konteks pesantren yang sudah diberikan.`
+  // Jika promptnya mengandung kata "test" maka dia adalah admin khodimul markaz, dan sapa dia dengan sopan
+  // Jika pengguna mengunggah gambar atau file , analisis gambar atau file tersebut. 
+  // Untuk semua permintaan lainnya, jawablah secara normal.
+  // Jika Dia ingin ngobrol, ajaklah dia ngobrol dengan santai.
+  // Jika promptnya mengandung kata "khodimul markaz" maka dia adalah admin, dan sapa dia dengan sopan
+  ;
 
 // Dapatkan instance model generatif
 const model = genAI.getGenerativeModel({
@@ -35,13 +40,24 @@ const model = genAI.getGenerativeModel({
   systemInstruction: systemPrompt
 });
 
-const upload = multer({ dest: "uploads/" }); // Masih diperlukan untuk generate-from-image
+const uploadsDir = path.join(__dirname, 'uploads');
+// Pastikan folder 'uploads' ada
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir);
+}
+const upload = multer({ dest: uploadsDir }); // Menggunakan path absolut untuk 'uploads'
+
+
+// const upload = multer({ dest: "uploads/" }); // Masih diperlukan untuk generate-from-image
 
 const PORT = 3000;
 
 function generatePart(req) {
   console.log("generatePart filePath : ", req.file);
-
+  // >>>>> Perubahan: Pastikan req.file ada sebelum membaca
+  if (!req.file) {
+    throw new Error("No file uploaded for generatePart.");
+  }
   const filePath = req.file.path;
 
   const dataBuffer = fs.readFileSync(filePath);
@@ -58,7 +74,7 @@ function generatePart(req) {
 
 
 app.post("/generate-text", async (req, res) => {
-  
+
 
   const { prompt } = req.body;
   console.log("Hit generate-text:", prompt);
@@ -66,7 +82,7 @@ app.post("/generate-text", async (req, res) => {
     const result = await model.generateContent(prompt);
     const response = await result.response;
     const generatedText = response.text();
-    res.json({ type: "text", text: generatedText, sender: "bot"  });
+    res.json({ type: "text", text: generatedText, sender: "bot" });
   } catch (error) {
     console.error("Error generating text:", error);
     res.status(500).json({ error: error.message });
